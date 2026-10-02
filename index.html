@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#f8fafc" />
+  <title>Mobile World | Admin Panel</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%);
+      min-height: 100vh;
+      color: #0f172a;
+    }
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      z-index: 9999;
+      padding: 0.75rem 1.25rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-width: 90vw;
+      text-align: center;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { background: #10b981; color: white; }
+    .toast.error { background: #ef4444; color: white; }
+    .drop-zone.dragover {
+      border-color: #3b82f6 !important;
+      background: #eff6ff !important;
+    }
+    .progress-bar {
+      height: 4px;
+      background: #e2e8f0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body class="antialiased">
+
+  <!-- PIN GATE -->
+  <div id="pinGate" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4 text-center">
+      <div class="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h1 class="text-xl font-bold text-slate-900 mb-1">Admin Access</h1>
+      <p class="text-sm text-slate-500 mb-6">Enter PIN to continue</p>
+      <input id="pinInput" type="password" maxlength="8" inputmode="numeric" pattern="[0-9]*"
+             placeholder="••••"
+             class="w-full text-center text-2xl tracking-[0.5em] font-semibold py-3 px-4 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:outline-none transition mb-4" />
+      <button id="pinSubmit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition active:scale-[0.98]">
+        Unlock
+      </button>
+      <p id="pinError" class="text-red-500 text-sm mt-3 hidden">Incorrect PIN</p>
+    </div>
+  </div>
+
+  <!-- MAIN ADMIN UI -->
+  <div id="adminApp" class="hidden max-w-3xl mx-auto px-4 py-6">
+
+    <header class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-3">
+        <img src="images/logo.png" alt="Logo" class="w-11 h-11 rounded-xl object-contain shadow-sm bg-white" onerror="this.style.display='none'" />
+        <div>
+          <h1 class="text-lg font-bold text-slate-900">Mobile World Admin</h1>
+          <p class="text-xs text-slate-500">Customer Photos Manager</p>
+        </div>
+      </div>
+      <button id="logoutBtn" class="text-sm font-medium text-slate-500 hover:text-red-500 transition px-3 py-1.5 rounded-lg hover:bg-red-50">
+        Lock
+      </button>
+    </header>
+
+    <!-- Upload -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+      <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">Upload Photos</h2>
+
+      <div id="dropZone" class="drop-zone border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer transition hover:border-blue-400 hover:bg-blue-50/50">
+        <svg class="mx-auto mb-3 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p class="text-sm font-medium text-slate-700">Drag & drop photos here</p>
+        <p class="text-xs text-slate-400 mt-1">or click to browse · JPG, PNG, WEBP</p>
+        <input id="fileInput" type="file" accept="image/*" multiple class="hidden" />
+      </div>
+
+      <div id="uploadProgress" class="mt-4 hidden">
+        <div class="flex justify-between text-xs text-slate-500 mb-1">
+          <span id="progressText">Uploading...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gallery -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Gallery</h2>
+        <span id="photoCount" class="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">0 photos</span>
+      </div>
+
+      <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+
+      <div id="emptyState" class="text-center py-12 hidden">
+        <svg class="mx-auto mb-3 text-slate-300" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <p class="text-sm text-slate-400">No photos yet. Upload some above.</p>
+      </div>
+    </section>
+
+    <p class="text-center text-xs text-slate-400 mt-8 pb-6">
+      Mobile World Admin · Photos sync live to the website
+    </p>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://bxukayuqaylnjazpscai.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_fe3TPiytqpv_wr8abcNL2Q_Re_LE1hn';
+    const BUCKET = 'customer-photos';
+    const ADMIN_PIN = '1234';
+
+    // Fixed: use supabaseClient instead of supabase to avoid conflict with CDN global
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const pinGate = document.getElementById('pinGate');
+    const adminApp = document.getElementById('adminApp');
+    const pinInput = document.getElementById('pinInput');
+    const pinError = document.getElementById('pinError');
+
+    function checkPin() {
+      if (pinInput.value === ADMIN_PIN) {
+        pinGate.classList.add('hidden');
+        adminApp.classList.remove('hidden');
+        pinError.classList.add('hidden');
+        loadGallery();
+      } else {
+        pinError.classList.remove('hidden');
+        pinInput.value = '';
+        pinInput.focus();
+      }
+    }
+
+    document.getElementById('pinSubmit').addEventListener('click', checkPin);
+    pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkPin(); });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      pinInput.value = '';
+      adminApp.classList.add('hidden');
+      pinGate.classList.remove('hidden');
+    });
+
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast ' + type + ' show';
+      setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const progressPercent = document.getElementById('progressPercent');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) handleFiles(fileInput.files);
+    });
+
+    async function handleFiles(files) {
+      const images = Array.from(files).filter(f => f.type.startsWith('image/'));
+      if (!images.length) {
+        showToast('Please select image files only', 'error');
+        return;
+      }
+
+      uploadProgress.classList.remove('hidden');
+      let done = 0;
+
+      for (const file of images) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const name = 'customer_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) + '.' + ext;
+
+        progressText.textContent = 'Uploading ' + file.name + '...';
+        progressPercent.textContent = Math.round((done / images.length) * 100) + '%';
+        progressFill.style.width = (done / images.length) * 100 + '%';
+
+        const { error } = await supabaseClient.storage.from(BUCKET).upload(name, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+        if (error) {
+          console.error(error);
+          showToast('Failed: ' + file.name, 'error');
+        } else {
+          done++;
+          progressPercent.textContent = Math.round((done / images.length) * 100) + '%';
+          progressFill.style.width = (done / images.length) * 100 + '%';
+        }
+      }
+
+      progressText.textContent = 'Done!';
+      progressFill.style.width = '100%';
+      progressPercent.textContent = '100%';
+      showToast(done + ' photo' + (done !== 1 ? 's' : '') + ' uploaded successfully');
+      fileInput.value = '';
+      setTimeout(() => {
+        uploadProgress.classList.add('hidden');
+        progressFill.style.width = '0%';
+      }, 1200);
+      loadGallery();
+    }
+
+    async function loadGallery() {
+      const gallery = document.getElementById('gallery');
+      const emptyState = document.getElementById('emptyState');
+      const photoCount = document.getElementById('photoCount');
+
+      gallery.innerHTML = '<p class="col-span-full text-center text-sm text-slate-400 py-8">Loading...</p>';
+
+      const { data, error } = await supabaseClient.storage.from(BUCKET).list('', {
+        limit: 100,
+        sortBy: { column: 'created_at', order: 'desc' }
+      });
+
+      if (error) {
+        console.error(error);
+        gallery.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        photoCount.textContent = '0 photos';
+        showToast('Failed to load gallery', 'error');
+        return;
+      }
+
+      const images = (data || []).filter(f => f.name && /\.(jpe?g|png|webp|gif)$/i.test(f.name));
+
+      photoCount.textContent = images.length + ' photo' + (images.length !== 1 ? 's' : '');
+
+      if (!images.length) {
+        gallery.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      gallery.innerHTML = '';
+
+      images.forEach(file => {
+        const publicUrl = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + file.name;
+
+        const card = document.createElement('div');
+        card.className = 'relative group rounded-xl overflow-hidden bg-slate-100 border border-slate-200';
+        card.innerHTML = 
+          '<img src="' + publicUrl + '" alt="' + file.name + '" class="w-full aspect-square object-cover" loading="lazy" />' +
+          '<div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-end justify-center p-2 opacity-0 group-hover:opacity-100">' +
+            '<button data-name="' + file.name + '" class="delete-btn w-full py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition">Delete</button>' +
+          '</div>' +
+          '<button data-name="' + file.name + '" class="delete-btn sm:hidden absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+          '</button>';
+        gallery.appendChild(card);
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const name = btn.dataset.name;
+          if (!confirm('Delete this photo?\n' + name)) return;
+
+          const { error } = await supabaseClient.storage.from(BUCKET).remove([name]);
+          if (error) {
+            showToast('Delete failed', 'error');
+            console.error(error);
+          } else {
+            showToast('Photo deleted');
+            loadGallery();
+          }
+        });
+      });
+    }
+  </script>
+</body>
+</html>
