@@ -76,7 +76,7 @@
       <button id="pinSubmit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition active:scale-[0.98]">
         Unlock
       </button>
-      <p id="pinError" class="text-red-500 text-sm mt-3 hidden">Incorrect PIN</p>
+      <p id="pinError" class="text-red-500 text-sm mt-3 hidden">Incorrect PIN or Auth failed</p>
     </div>
   </div>
 
@@ -149,41 +149,93 @@
   <div id="toast" class="toast"></div>
 
   <script>
+    // =====================================================
+    // CONFIG
+    // =====================================================
     const SUPABASE_URL = 'https://bxukayuqaylnjazpscai.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_fe3TPiytqpv_wr8abcNL2Q_Re_LE1hn';
     const BUCKET = 'customer-photos';
+
+    // Your Supabase Auth credentials
+    const ADMIN_EMAIL = 'avhidhibar84@gmail.com';
+    const ADMIN_PASSWORD = 'avhishek@001';
     const ADMIN_PIN = '1234';
 
-    // Fixed: use supabaseClient instead of supabase to avoid conflict with CDN global
+    // =====================================================
+    // SUPABASE CLIENT
+    // =====================================================
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // =====================================================
+    // UI ELEMENTS
+    // =====================================================
     const pinGate = document.getElementById('pinGate');
     const adminApp = document.getElementById('adminApp');
     const pinInput = document.getElementById('pinInput');
     const pinError = document.getElementById('pinError');
 
-    function checkPin() {
-      if (pinInput.value === ADMIN_PIN) {
-        pinGate.classList.add('hidden');
-        adminApp.classList.remove('hidden');
-        pinError.classList.add('hidden');
-        loadGallery();
-      } else {
+    // =====================================================
+    // PIN + BACKGROUND AUTH
+    // =====================================================
+    async function checkPin() {
+      if (pinInput.value !== ADMIN_PIN) {
+        pinError.textContent = 'Incorrect PIN';
         pinError.classList.remove('hidden');
         pinInput.value = '';
         pinInput.focus();
+        return;
+      }
+
+      pinError.classList.add('hidden');
+      const btn = document.getElementById('pinSubmit');
+      btn.disabled = true;
+      btn.textContent = 'Unlocking...';
+
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email: ADMIN_EMAIL,
+          password: ADMIN_PASSWORD
+        });
+
+        if (error) {
+          console.error(error);
+          pinError.textContent = 'Auth failed – check email/password';
+          pinError.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = 'Unlock';
+          return;
+        }
+
+        // Success
+        pinGate.classList.add('hidden');
+        adminApp.classList.remove('hidden');
+        loadGallery();
+      } catch (err) {
+        console.error(err);
+        pinError.textContent = 'Connection error';
+        pinError.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
       }
     }
 
     document.getElementById('pinSubmit').addEventListener('click', checkPin);
-    pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkPin(); });
+    pinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') checkPin();
+    });
 
-    document.getElementById('logoutBtn').addEventListener('click', () => {
+    // Lock = sign out + show PIN again
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await supabaseClient.auth.signOut();
       pinInput.value = '';
       adminApp.classList.add('hidden');
       pinGate.classList.remove('hidden');
     });
 
+    // =====================================================
+    // TOAST
+    // =====================================================
     function showToast(msg, type = 'success') {
       const t = document.getElementById('toast');
       t.textContent = msg;
@@ -191,6 +243,9 @@
       setTimeout(() => t.classList.remove('show'), 2800);
     }
 
+    // =====================================================
+    // UPLOAD
+    // =====================================================
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const uploadProgress = document.getElementById('uploadProgress');
@@ -199,7 +254,10 @@
     const progressPercent = document.getElementById('progressPercent');
 
     dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
@@ -217,6 +275,14 @@
         return;
       }
 
+      // Ensure we still have a valid session
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        showToast('Session expired – please unlock again', 'error');
+        document.getElementById('logoutBtn').click();
+        return;
+      }
+
       uploadProgress.classList.remove('hidden');
       let done = 0;
 
@@ -228,10 +294,12 @@
         progressPercent.textContent = Math.round((done / images.length) * 100) + '%';
         progressFill.style.width = (done / images.length) * 100 + '%';
 
-        const { error } = await supabaseClient.storage.from(BUCKET).upload(name, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+        const { error } = await supabaseClient.storage
+          .from(BUCKET)
+          .upload(name, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (error) {
           console.error(error);
@@ -255,6 +323,9 @@
       loadGallery();
     }
 
+    // =====================================================
+    // GALLERY
+    // =====================================================
     async function loadGallery() {
       const gallery = document.getElementById('gallery');
       const emptyState = document.getElementById('emptyState');
@@ -262,10 +333,12 @@
 
       gallery.innerHTML = '<p class="col-span-full text-center text-sm text-slate-400 py-8">Loading...</p>';
 
-      const { data, error } = await supabaseClient.storage.from(BUCKET).list('', {
-        limit: 100,
-        sortBy: { column: 'created_at', order: 'desc' }
-      });
+      const { data, error } = await supabaseClient.storage
+        .from(BUCKET)
+        .list('', {
+          limit: 100,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
 
       if (error) {
         console.error(error);
@@ -276,7 +349,9 @@
         return;
       }
 
-      const images = (data || []).filter(f => f.name && /\.(jpe?g|png|webp|gif)$/i.test(f.name));
+      const images = (data || []).filter(f =>
+        f.name && /\.(jpe?g|png|webp|gif)$/i.test(f.name)
+      );
 
       photoCount.textContent = images.length + ' photo' + (images.length !== 1 ? 's' : '');
 
@@ -294,7 +369,7 @@
 
         const card = document.createElement('div');
         card.className = 'relative group rounded-xl overflow-hidden bg-slate-100 border border-slate-200';
-        card.innerHTML = 
+        card.innerHTML =
           '<img src="' + publicUrl + '" alt="' + file.name + '" class="w-full aspect-square object-cover" loading="lazy" />' +
           '<div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-end justify-center p-2 opacity-0 group-hover:opacity-100">' +
             '<button data-name="' + file.name + '" class="delete-btn w-full py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition">Delete</button>' +
@@ -311,7 +386,10 @@
           const name = btn.dataset.name;
           if (!confirm('Delete this photo?\n' + name)) return;
 
-          const { error } = await supabaseClient.storage.from(BUCKET).remove([name]);
+          const { error } = await supabaseClient.storage
+            .from(BUCKET)
+            .remove([name]);
+
           if (error) {
             showToast('Delete failed', 'error');
             console.error(error);
