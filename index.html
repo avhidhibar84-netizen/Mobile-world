@@ -256,6 +256,13 @@
       setTimeout(() => t.classList.remove('show'), 3000);
     }
 
+    // PRODUCT IMAGE FILE INPUT – reset value on every click so the same file
+    // (or a new one) can be selected again on mobile / PWA WebViews
+    const prodImageInput = document.getElementById('prodImage');
+    prodImageInput.addEventListener('click', function () {
+      this.value = null;
+    });
+
     // PRODUCT UPLOAD
     document.getElementById('productForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -297,6 +304,8 @@
 
         showToast('Product uploaded successfully!');
         document.getElementById('productForm').reset();
+        // Explicitly clear the file input after successful upload
+        prodImageInput.value = null;
         loadProducts();
       } catch (err) {
         console.error(err);
@@ -455,7 +464,7 @@
                 <a href="https://wa.me/${waPhone}" target="_blank" rel="noopener noreferrer"
                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition">WhatsApp</a>
                 <a href="tel:+${waPhone}"
-                   class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition">Call</a>
+                   class="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition">Call</a>
                 <button onclick="markComplete('${o.id}', '${productId}')"
                         class="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition">Mark Complete</button>
                 <button onclick="cancelPreOrder('${o.id}', '${productId}')"
