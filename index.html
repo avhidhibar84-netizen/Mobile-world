@@ -8,6 +8,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,41 +21,22 @@
       background: linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%);
       min-height: 100vh;
       color: #0f172a;
+      margin: 0;
     }
     .toast {
-      position: fixed;
-      bottom: 1.5rem;
-      left: 50%;
+      position: fixed; bottom: 1.5rem; left: 50%;
       transform: translateX(-50%) translateY(120%);
-      z-index: 9999;
-      padding: 0.75rem 1.25rem;
-      border-radius: 9999px;
-      font-size: 0.875rem;
-      font-weight: 500;
+      z-index: 9999; padding: 0.75rem 1.25rem; border-radius: 9999px;
+      font-size: 0.875rem; font-weight: 500;
       box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-      max-width: 90vw;
-      text-align: center;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      max-width: 90vw; text-align: center;
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
     .toast.success { background: #10b981; color: white; }
     .toast.error { background: #ef4444; color: white; }
-    .drop-zone.dragover {
-      border-color: #3b82f6 !important;
-      background: #eff6ff !important;
-    }
-    .progress-bar {
-      height: 4px;
-      background: #e2e8f0;
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #3b82f6, #60a5fa);
-      width: 0%;
-      transition: width 0.3s ease;
-    }
+    .drop-zone.dragover { border-color: #3b82f6 !important; background: #eff6ff !important; }
+    .tab-btn.active { background: #2563eb; color: white; }
   </style>
 </head>
 <body class="antialiased">
@@ -73,110 +55,146 @@
       <input id="pinInput" type="password" maxlength="8" inputmode="numeric" pattern="[0-9]*"
              placeholder="••••"
              class="w-full text-center text-2xl tracking-[0.5em] font-semibold py-3 px-4 rounded-xl border-2 border-slate-200 focus:border-blue-500 focus:outline-none transition mb-4" />
-      <button id="pinSubmit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition active:scale-[0.98]">
-        Unlock
-      </button>
+      <button id="pinSubmit" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition active:scale-[0.98]">Unlock</button>
       <p id="pinError" class="text-red-500 text-sm mt-3 hidden">Incorrect PIN or Auth failed</p>
     </div>
   </div>
 
-  <!-- MAIN ADMIN UI -->
+  <!-- MAIN ADMIN -->
   <div id="adminApp" class="hidden max-w-3xl mx-auto px-4 py-6">
 
-    <header class="flex items-center justify-between mb-8">
+    <header class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-3">
         <img src="images/logo.png" alt="Logo" class="w-11 h-11 rounded-xl object-contain shadow-sm bg-white" onerror="this.style.display='none'" />
         <div>
           <h1 class="text-lg font-bold text-slate-900">Mobile World Admin</h1>
-          <p class="text-xs text-slate-500">Customer Photos Manager</p>
+          <p class="text-xs text-slate-500">Products • Pre-Orders • Photos</p>
         </div>
       </div>
-      <button id="logoutBtn" class="text-sm font-medium text-slate-500 hover:text-red-500 transition px-3 py-1.5 rounded-lg hover:bg-red-50">
-        Lock
-      </button>
+      <button id="logoutBtn" class="text-sm font-medium text-slate-500 hover:text-red-500 transition px-3 py-1.5 rounded-lg hover:bg-red-50">Lock</button>
     </header>
 
-    <!-- Upload -->
-    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
-      <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">Upload Photos</h2>
+    <div class="flex gap-2 mb-6 overflow-x-auto pb-1">
+      <button onclick="switchTab('products')" id="tab-products" class="tab-btn active px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Products</button>
+      <button onclick="switchTab('preorders')" id="tab-preorders" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Pre-Orders</button>
+      <button onclick="switchTab('photos')" id="tab-photos" class="tab-btn px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 whitespace-nowrap">Customer Photos</button>
+    </div>
 
-      <div id="dropZone" class="drop-zone border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer transition hover:border-blue-400 hover:bg-blue-50/50">
-        <svg class="mx-auto mb-3 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        <p class="text-sm font-medium text-slate-700">Drag & drop photos here</p>
-        <p class="text-xs text-slate-400 mt-1">or click to browse · JPG, PNG, WEBP</p>
-        <input id="fileInput" type="file" accept="image/*" multiple class="hidden" />
-      </div>
+    <!-- PRODUCTS -->
+    <div id="section-products">
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+        <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">Add New Product</h2>
+        <form id="productForm" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Product Name *</label>
+            <input type="text" id="prodName" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none text-sm" placeholder="e.g. Gold Plated Ring">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Category *</label>
+            <select id="prodCategory" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none text-sm bg-white">
+              <option value="">Select category</option>
+              <option value="rings">Rings</option>
+              <option value="necklaces">Necklaces</option>
+              <option value="earrings">Earrings</option>
+              <option value="bangles">Bangles</option>
+              <option value="mobile_accessories">Mobile Accessories</option>
+              <option value="others">Others</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Original Price (₹) *</label>
+              <input type="number" id="prodPrice" required min="0" step="0.01" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none text-sm" placeholder="999">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Discount Price (₹)</label>
+              <input type="number" id="prodDiscount" min="0" step="0.01" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none text-sm" placeholder="Optional">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Description</label>
+            <textarea id="prodDesc" rows="3" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none text-sm resize-none" placeholder="Product details..."></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Product Image *</label>
+            <input type="file" id="prodImage" accept="image/*" required class="w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium">
+          </div>
+          <button type="submit" id="prodSubmitBtn" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition active:scale-[0.98]">Upload Product</button>
+        </form>
+      </section>
 
-      <div id="uploadProgress" class="mt-4 hidden">
-        <div class="flex justify-between text-xs text-slate-500 mb-1">
-          <span id="progressText">Uploading...</span>
-          <span id="progressPercent">0%</span>
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">All Products</h2>
+          <span id="productCount" class="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">0</span>
         </div>
-        <div class="progress-bar">
-          <div id="progressFill" class="progress-fill"></div>
+        <div id="productsList" class="space-y-3"></div>
+        <div id="productsEmpty" class="text-center py-10 text-sm text-slate-400 hidden">No products yet.</div>
+      </section>
+    </div>
+
+    <!-- PRE-ORDERS -->
+    <div id="section-preorders" class="hidden">
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Pre-Orders</h2>
+          <button onclick="loadPreOrders()" class="text-xs font-medium text-blue-600 hover:underline">Refresh</button>
         </div>
-      </div>
-    </section>
 
-    <!-- Gallery -->
-    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Gallery</h2>
-        <span id="photoCount" class="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">0 photos</span>
-      </div>
+        <div class="relative mb-4">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="preOrderSearch" type="search" placeholder="Search by Name or Phone Number..."
+                 class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:border-blue-500 focus:outline-none" />
+        </div>
 
-      <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+        <div id="preOrdersList" class="space-y-3"></div>
+        <div id="preOrdersEmpty" class="text-center py-10 text-sm text-slate-400 hidden">No pre-orders yet.</div>
+        <div id="preOrdersNoMatch" class="text-center py-10 text-sm text-slate-400 hidden">No matching pre-orders.</div>
+      </section>
+    </div>
 
-      <div id="emptyState" class="text-center py-12 hidden">
-        <svg class="mx-auto mb-3 text-slate-300" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21 15 16 10 5 21"/>
-        </svg>
-        <p class="text-sm text-slate-400">No photos yet. Upload some above.</p>
-      </div>
-    </section>
+    <!-- CUSTOMER PHOTOS -->
+    <div id="section-photos" class="hidden">
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+        <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">Upload Customer Photos</h2>
+        <div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer transition hover:border-blue-400 hover:bg-blue-50/50">
+          <p class="text-sm font-medium text-slate-700">Drag & drop or click to upload</p>
+          <p class="text-xs text-slate-400 mt-1">JPG, PNG, WEBP</p>
+          <input id="fileInput" type="file" accept="image/*" multiple class="hidden" />
+        </div>
+      </section>
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Gallery</h2>
+          <span id="photoCount" class="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">0 photos</span>
+        </div>
+        <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+        <div id="emptyState" class="text-center py-10 text-sm text-slate-400 hidden">No photos yet.</div>
+      </section>
+    </div>
 
-    <p class="text-center text-xs text-slate-400 mt-8 pb-6">
-      Mobile World Admin · Photos sync live to the website
-    </p>
+    <p class="text-center text-xs text-slate-400 mt-8 pb-6">Mobile World Admin Panel</p>
   </div>
 
   <div id="toast" class="toast"></div>
 
   <script>
-    // =====================================================
-    // CONFIG
-    // =====================================================
     const SUPABASE_URL = 'https://bxukayuqaylnjazpscai.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_fe3TPiytqpv_wr8abcNL2Q_Re_LE1hn';
-    const BUCKET = 'customer-photos';
-
-    // Your Supabase Auth credentials
+    const PHOTO_BUCKET = 'customer-photos';
+    const PRODUCT_BUCKET = 'products';
     const ADMIN_EMAIL = 'avhidhibar84@gmail.com';
     const ADMIN_PASSWORD = 'avhishek@001';
     const ADMIN_PIN = '1234';
 
-    // =====================================================
-    // SUPABASE CLIENT
-    // =====================================================
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let allPreOrders = [];
 
-    // =====================================================
-    // UI ELEMENTS
-    // =====================================================
     const pinGate = document.getElementById('pinGate');
     const adminApp = document.getElementById('adminApp');
     const pinInput = document.getElementById('pinInput');
     const pinError = document.getElementById('pinError');
 
-    // =====================================================
-    // PIN + BACKGROUND AUTH
-    // =====================================================
     async function checkPin() {
       if (pinInput.value !== ADMIN_PIN) {
         pinError.textContent = 'Incorrect PIN';
@@ -185,33 +203,28 @@
         pinInput.focus();
         return;
       }
-
       pinError.classList.add('hidden');
       const btn = document.getElementById('pinSubmit');
       btn.disabled = true;
       btn.textContent = 'Unlocking...';
-
       try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
+        const { error } = await supabaseClient.auth.signInWithPassword({
           email: ADMIN_EMAIL,
           password: ADMIN_PASSWORD
         });
-
         if (error) {
-          console.error(error);
-          pinError.textContent = 'Auth failed – check email/password';
+          pinError.textContent = 'Auth failed';
           pinError.classList.remove('hidden');
           btn.disabled = false;
           btn.textContent = 'Unlock';
           return;
         }
-
-        // Success
         pinGate.classList.add('hidden');
         adminApp.classList.remove('hidden');
+        loadProducts();
+        loadPreOrders();
         loadGallery();
       } catch (err) {
-        console.error(err);
         pinError.textContent = 'Connection error';
         pinError.classList.remove('hidden');
       } finally {
@@ -221,11 +234,7 @@
     }
 
     document.getElementById('pinSubmit').addEventListener('click', checkPin);
-    pinInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') checkPin();
-    });
-
-    // Lock = sign out + show PIN again
+    pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') checkPin(); });
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await supabaseClient.auth.signOut();
       pinInput.value = '';
@@ -233,170 +242,371 @@
       pinGate.classList.remove('hidden');
     });
 
-    // =====================================================
-    // TOAST
-    // =====================================================
+    function switchTab(tab) {
+      ['products', 'preorders', 'photos'].forEach(t => {
+        document.getElementById('section-' + t).classList.toggle('hidden', t !== tab);
+        document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+      });
+    }
+
     function showToast(msg, type = 'success') {
       const t = document.getElementById('toast');
       t.textContent = msg;
       t.className = 'toast ' + type + ' show';
-      setTimeout(() => t.classList.remove('show'), 2800);
+      setTimeout(() => t.classList.remove('show'), 3000);
     }
 
-    // =====================================================
-    // UPLOAD
-    // =====================================================
+    // PRODUCT UPLOAD
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('prodName').value.trim();
+      const category = document.getElementById('prodCategory').value;
+      const price = parseFloat(document.getElementById('prodPrice').value);
+      const discountRaw = document.getElementById('prodDiscount').value;
+      const discount_price = discountRaw ? parseFloat(discountRaw) : null;
+      const description = document.getElementById('prodDesc').value.trim();
+      const imageFile = document.getElementById('prodImage').files[0];
+
+      if (!name || !category || !price || !imageFile) {
+        showToast('Please fill all required fields', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('prodSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Compressing & Uploading...';
+
+      try {
+        const options = { maxSizeMB: 0.15, maxWidthOrHeight: 800, useWebWorker: true, fileType: 'image/webp' };
+        const compressedFile = await imageCompression(imageFile, options);
+        const fileName = 'product_' + Date.now() + '.webp';
+
+        const { error: uploadError } = await supabaseClient.storage
+          .from(PRODUCT_BUCKET)
+          .upload(fileName, compressedFile, { cacheControl: '3600', upsert: false, contentType: 'image/webp' });
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabaseClient.storage.from(PRODUCT_BUCKET).getPublicUrl(fileName);
+        const image_url = urlData.publicUrl;
+
+        const { error: insertError } = await supabaseClient.from('products').insert({
+          name, category, price, discount_price, description, image_url,
+          in_stock: true, status: 'available'
+        });
+        if (insertError) throw insertError;
+
+        showToast('Product uploaded successfully!');
+        document.getElementById('productForm').reset();
+        loadProducts();
+      } catch (err) {
+        console.error(err);
+        showToast('Upload failed: ' + (err.message || 'Unknown error'), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Upload Product';
+      }
+    });
+
+    async function loadProducts() {
+      const list = document.getElementById('productsList');
+      const empty = document.getElementById('productsEmpty');
+      const count = document.getElementById('productCount');
+      list.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">Loading...</p>';
+
+      const { data, error } = await supabaseClient
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        count.textContent = '0';
+        return;
+      }
+
+      count.textContent = data.length;
+      if (!data.length) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+      list.innerHTML = data.map(p => {
+        const safeUrl = (p.image_url || '').replace(/'/g, "\\'");
+        const statusBadge = p.status === 'reserved'
+          ? '<span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Reserved</span>'
+          : p.status === 'sold'
+          ? '<span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">Sold</span>'
+          : '<span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Available</span>';
+        return `
+        <div class="flex gap-3 items-center p-3 rounded-xl border border-slate-100 bg-slate-50">
+          <img src="${p.image_url}" class="w-14 h-14 rounded-lg object-cover bg-white border" onerror="this.style.opacity='0.3'">
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm text-slate-900 truncate">${p.name}</p>
+            <p class="text-xs text-slate-500 capitalize">${(p.category||'').replace('_',' ')}</p>
+            <p class="text-sm font-medium text-blue-600 mt-0.5">
+              ${p.discount_price ? `<span class="line-through text-slate-400 mr-1">₹${p.price}</span>₹${p.discount_price}` : '₹' + p.price}
+            </p>
+            <div class="mt-1">${statusBadge}</div>
+          </div>
+          <button onclick="deleteProduct('${p.id}', '${safeUrl}')" class="text-xs text-red-500 hover:bg-red-50 px-2 py-1 rounded-lg font-medium">Delete</button>
+        </div>`;
+      }).join('');
+    }
+
+    async function deleteProduct(productId, imageUrl) {
+      if (!confirm('Are you sure you want to delete this product?')) return;
+      try {
+        if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim()) {
+          try {
+            const decodedUrl = decodeURIComponent(imageUrl);
+            const marker = '/products/';
+            const idx = decodedUrl.indexOf(marker);
+            if (idx !== -1) {
+              let filePath = decodedUrl.substring(idx + marker.length).split('?')[0].split('#')[0];
+              if (filePath) await supabaseClient.storage.from(PRODUCT_BUCKET).remove([filePath]);
+            }
+          } catch (err) {
+            console.warn('Image path parsing failed:', err.message);
+          }
+        }
+        const { error: dbError } = await supabaseClient.from('products').delete().eq('id', productId);
+        if (dbError) throw dbError;
+        showToast('Product and image deleted successfully!');
+        loadProducts();
+      } catch (error) {
+        console.error('Delete failed:', error.message);
+        showToast('Delete failed: ' + (error.message || 'Unknown error'), 'error');
+      }
+    }
+
+    // PRE-ORDERS
+    async function loadPreOrders() {
+      const list = document.getElementById('preOrdersList');
+      const empty = document.getElementById('preOrdersEmpty');
+      const noMatch = document.getElementById('preOrdersNoMatch');
+      list.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">Loading...</p>';
+      empty.classList.add('hidden');
+      noMatch.classList.add('hidden');
+
+      const { data, error } = await supabaseClient
+        .from('pre_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        allPreOrders = [];
+        return;
+      }
+
+      allPreOrders = data;
+      if (!data.length) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      renderPreOrderRows(data);
+    }
+
+    function renderPreOrderRows(orders) {
+      const list = document.getElementById('preOrdersList');
+      const empty = document.getElementById('preOrdersEmpty');
+      const noMatch = document.getElementById('preOrdersNoMatch');
+      empty.classList.add('hidden');
+      noMatch.classList.add('hidden');
+
+      if (!orders.length) {
+        list.innerHTML = '';
+        if (allPreOrders.length === 0) empty.classList.remove('hidden');
+        else noMatch.classList.remove('hidden');
+        return;
+      }
+
+      list.innerHTML = orders.map(o => {
+        const date = new Date(o.created_at).toLocaleString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+        const phone = String(o.phone_number || o.customer_phone || '').replace(/\D/g, '');
+        const waPhone = phone.startsWith('91') ? phone : '91' + phone;
+        const ip = o.user_ip || 'N/A';
+        const status = o.status || 'pending';
+        const productId = o.product_id || '';
+        const statusClass =
+          status === 'pending' || status === 'Pending' ? 'bg-amber-100 text-amber-700' :
+          status === 'completed' || status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
+          'bg-slate-100 text-slate-600';
+
+        return `
+          <div class="preorder-row p-4 rounded-xl border border-slate-100 bg-slate-50">
+            <div class="flex flex-col gap-2">
+              <div class="min-w-0">
+                <p class="font-semibold text-sm text-slate-900">${o.customer_name || '—'}</p>
+                <p class="text-xs text-slate-500 mt-0.5">${o.product_name || '—'}</p>
+                <p class="text-xs text-slate-500 mt-0.5">📞 ${phone || '—'}</p>
+                <p class="text-xs text-slate-400 mt-1">${date}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">IP: ${ip}</p>
+                <span class="inline-block mt-2 text-[11px] font-medium px-2 py-0.5 rounded-full ${statusClass}">${status}</span>
+              </div>
+              <div class="flex flex-wrap gap-2 mt-1">
+                <a href="https://wa.me/${waPhone}" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition">WhatsApp</a>
+                <a href="tel:+${waPhone}"
+                   class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition">Call</a>
+                <button onclick="markComplete('${o.id}', '${productId}')"
+                        class="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition">Mark Complete</button>
+                <button onclick="cancelPreOrder('${o.id}', '${productId}')"
+                        class="inline-flex items-center px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold transition">Cancel Order</button>
+                <button onclick="markAsSpam('${ip}')"
+                        class="inline-flex items-center px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition">Mark as Spam</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('preOrderSearch').addEventListener('input', (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      if (!q) { renderPreOrderRows(allPreOrders); return; }
+      const filtered = allPreOrders.filter(o => {
+        const name = (o.customer_name || '').toLowerCase();
+        const phone = String(o.phone_number || o.customer_phone || '').replace(/\D/g, '');
+        return name.includes(q) || phone.includes(q);
+      });
+      renderPreOrderRows(filtered);
+    });
+
+    async function markComplete(orderId, productId) {
+      if (!confirm('Mark this order as completed?\n\nProduct will be marked as Sold and removed from pending list.')) return;
+      try {
+        if (productId && productId !== 'null' && productId !== 'undefined') {
+          await supabaseClient.from('products').update({ status: 'sold' }).eq('id', productId);
+        }
+        const { error: delError } = await supabaseClient.from('pre_orders').delete().eq('id', orderId);
+        if (delError) throw delError;
+        showToast('Order marked as completed and removed from pending list.');
+        loadPreOrders();
+        loadProducts();
+      } catch (err) {
+        console.error(err);
+        showToast('Mark complete failed: ' + (err.message || 'Unknown error'), 'error');
+      }
+    }
+
+    async function cancelPreOrder(orderId, productId) {
+      if (!confirm('Cancel this pre-order?\n\nThe product will be made available again on the storefront.')) return;
+      try {
+        if (productId && productId !== 'null' && productId !== 'undefined') {
+          await supabaseClient.from('products').update({ status: 'available' }).eq('id', productId);
+        }
+        const { error: delError } = await supabaseClient.from('pre_orders').delete().eq('id', orderId);
+        if (delError) throw delError;
+        showToast('Pre-Order cancelled. Product is back live on storefront.');
+        loadPreOrders();
+        loadProducts();
+      } catch (err) {
+        console.error(err);
+        showToast('Cancel failed: ' + (err.message || 'Unknown error'), 'error');
+      }
+    }
+
+    async function markAsSpam(userIp) {
+      if (!userIp || userIp === 'N/A' || userIp === 'unknown') {
+        showToast('No valid IP to blacklist', 'error');
+        return;
+      }
+      if (!confirm('Mark IP ' + userIp + ' as spam?\n\nThis will:\n• Blacklist the IP\n• Delete ALL pre-orders from this IP\n• Restore reserved products to Available')) return;
+      try {
+        await supabaseClient.from('blacklisted_ips').upsert({ ip_address: userIp }, { onConflict: 'ip_address' });
+
+        const { data: orders } = await supabaseClient
+          .from('pre_orders')
+          .select('product_id')
+          .eq('user_ip', userIp);
+
+        const productIds = (orders || [])
+          .map(o => o.product_id)
+          .filter(id => id && id !== 'null' && id !== 'undefined');
+
+        if (productIds.length > 0) {
+          await supabaseClient.from('products').update({ status: 'available' }).in('id', productIds);
+        }
+
+        const { error: delError } = await supabaseClient.from('pre_orders').delete().eq('user_ip', userIp);
+        if (delError) throw delError;
+
+        showToast('IP ' + userIp + ' blacklisted. Products restored to storefront.');
+        loadPreOrders();
+        loadProducts();
+      } catch (err) {
+        console.error(err);
+        showToast('Spam action failed: ' + (err.message || 'Unknown error'), 'error');
+      }
+    }
+
+    // CUSTOMER PHOTOS
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    const progressPercent = document.getElementById('progressPercent');
-
     dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', (e) => {
+    dropZone.addEventListener('drop', e => {
       e.preventDefault();
       dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+      if (e.dataTransfer.files.length) handlePhotoFiles(e.dataTransfer.files);
     });
     fileInput.addEventListener('change', () => {
-      if (fileInput.files.length) handleFiles(fileInput.files);
+      if (fileInput.files.length) handlePhotoFiles(fileInput.files);
     });
 
-    async function handleFiles(files) {
+    async function handlePhotoFiles(files) {
       const images = Array.from(files).filter(f => f.type.startsWith('image/'));
-      if (!images.length) {
-        showToast('Please select image files only', 'error');
-        return;
-      }
-
-      // Ensure we still have a valid session
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) {
-        showToast('Session expired – please unlock again', 'error');
-        document.getElementById('logoutBtn').click();
-        return;
-      }
-
-      uploadProgress.classList.remove('hidden');
+      if (!images.length) return showToast('Select image files only', 'error');
       let done = 0;
-
       for (const file of images) {
         const ext = file.name.split('.').pop().toLowerCase();
         const name = 'customer_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7) + '.' + ext;
-
-        progressText.textContent = 'Uploading ' + file.name + '...';
-        progressPercent.textContent = Math.round((done / images.length) * 100) + '%';
-        progressFill.style.width = (done / images.length) * 100 + '%';
-
-        const { error } = await supabaseClient.storage
-          .from(BUCKET)
-          .upload(name, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (error) {
-          console.error(error);
-          showToast('Failed: ' + file.name, 'error');
-        } else {
-          done++;
-          progressPercent.textContent = Math.round((done / images.length) * 100) + '%';
-          progressFill.style.width = (done / images.length) * 100 + '%';
-        }
+        const { error } = await supabaseClient.storage.from(PHOTO_BUCKET).upload(name, file);
+        if (!error) done++;
       }
-
-      progressText.textContent = 'Done!';
-      progressFill.style.width = '100%';
-      progressPercent.textContent = '100%';
-      showToast(done + ' photo' + (done !== 1 ? 's' : '') + ' uploaded successfully');
+      showToast(done + ' photo(s) uploaded');
       fileInput.value = '';
-      setTimeout(() => {
-        uploadProgress.classList.add('hidden');
-        progressFill.style.width = '0%';
-      }, 1200);
       loadGallery();
     }
 
-    // =====================================================
-    // GALLERY
-    // =====================================================
     async function loadGallery() {
       const gallery = document.getElementById('gallery');
-      const emptyState = document.getElementById('emptyState');
-      const photoCount = document.getElementById('photoCount');
-
-      gallery.innerHTML = '<p class="col-span-full text-center text-sm text-slate-400 py-8">Loading...</p>';
-
-      const { data, error } = await supabaseClient.storage
-        .from(BUCKET)
-        .list('', {
-          limit: 100,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
-
-      if (error) {
-        console.error(error);
-        gallery.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        photoCount.textContent = '0 photos';
-        showToast('Failed to load gallery', 'error');
-        return;
-      }
-
-      const images = (data || []).filter(f =>
-        f.name && /\.(jpe?g|png|webp|gif)$/i.test(f.name)
-      );
-
-      photoCount.textContent = images.length + ' photo' + (images.length !== 1 ? 's' : '');
-
+      const empty = document.getElementById('emptyState');
+      const count = document.getElementById('photoCount');
+      const { data } = await supabaseClient.storage.from(PHOTO_BUCKET).list('', {
+        limit: 100, sortBy: { column: 'created_at', order: 'desc' }
+      });
+      const images = (data || []).filter(f => f.name && /\.(jpe?g|png|webp|gif)$/i.test(f.name));
+      count.textContent = images.length + ' photos';
       if (!images.length) {
         gallery.innerHTML = '';
-        emptyState.classList.remove('hidden');
+        empty.classList.remove('hidden');
         return;
       }
-
-      emptyState.classList.add('hidden');
-      gallery.innerHTML = '';
-
-      images.forEach(file => {
-        const publicUrl = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + file.name;
-
-        const card = document.createElement('div');
-        card.className = 'relative group rounded-xl overflow-hidden bg-slate-100 border border-slate-200';
-        card.innerHTML =
-          '<img src="' + publicUrl + '" alt="' + file.name + '" class="w-full aspect-square object-cover" loading="lazy" />' +
-          '<div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-end justify-center p-2 opacity-0 group-hover:opacity-100">' +
-            '<button data-name="' + file.name + '" class="delete-btn w-full py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition">Delete</button>' +
-          '</div>' +
-          '<button data-name="' + file.name + '" class="delete-btn sm:hidden absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-          '</button>';
-        gallery.appendChild(card);
-      });
-
-      document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const name = btn.dataset.name;
-          if (!confirm('Delete this photo?\n' + name)) return;
-
-          const { error } = await supabaseClient.storage
-            .from(BUCKET)
-            .remove([name]);
-
-          if (error) {
-            showToast('Delete failed', 'error');
-            console.error(error);
-          } else {
-            showToast('Photo deleted');
-            loadGallery();
-          }
+      empty.classList.add('hidden');
+      gallery.innerHTML = images.map(f => {
+        const url = SUPABASE_URL + '/storage/v1/object/public/' + PHOTO_BUCKET + '/' + f.name;
+        return `
+          <div class="relative group rounded-xl overflow-hidden bg-slate-100 border">
+            <img src="${url}" class="w-full aspect-square object-cover" loading="lazy">
+            <button data-name="${f.name}" class="delete-photo absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shadow text-lg leading-none">×</button>
+          </div>`;
+      }).join('');
+      document.querySelectorAll('.delete-photo').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete this photo?')) return;
+          await supabaseClient.storage.from(PHOTO_BUCKET).remove([btn.dataset.name]);
+          showToast('Photo deleted');
+          loadGallery();
         });
       });
     }
