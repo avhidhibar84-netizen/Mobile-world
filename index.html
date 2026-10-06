@@ -118,7 +118,7 @@
     <div id="section-preorders" class="hidden">
       <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Pre-Orders</h2>
+          <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Orders (Pre-Order + Cart)</h2>
           <button onclick="loadPreOrders()" class="text-xs font-medium text-blue-600 hover:underline">Refresh</button>
         </div>
 
@@ -129,8 +129,8 @@
         </div>
 
         <div id="preOrdersList" class="space-y-3"></div>
-        <div id="preOrdersEmpty" class="text-center py-10 text-sm text-slate-400 hidden">No pre-orders yet.</div>
-        <div id="preOrdersNoMatch" class="text-center py-10 text-sm text-slate-400 hidden">No matching pre-orders.</div>
+        <div id="preOrdersEmpty" class="text-center py-10 text-sm text-slate-400 hidden">No orders yet.</div>
+        <div id="preOrdersNoMatch" class="text-center py-10 text-sm text-slate-400 hidden">No matching orders.</div>
       </section>
     </div>
 
@@ -315,7 +315,7 @@
       }
     }
 
-    // PRE-ORDERS
+    // ========== ORDERS (Pre-Order + Cart) ==========
     async function loadPreOrders() {
       const list = document.getElementById('preOrdersList');
       const empty = document.getElementById('preOrdersEmpty');
@@ -345,6 +345,27 @@
       renderPreOrderRows(data);
     }
 
+    function getProductIdsFromOrder(o) {
+      // Collect all product IDs that belong to this order
+      const ids = new Set();
+      if (o.product_id && o.product_id !== 'null' && o.product_id !== 'undefined') {
+        ids.add(String(o.product_id));
+      }
+      // Cart items stored in `items` JSONB
+      if (o.items && Array.isArray(o.items)) {
+        o.items.forEach(item => {
+          if (item && item.product_id) ids.add(String(item.product_id));
+        });
+      }
+      // Fallback for older cart_items column if present
+      if (o.cart_items && Array.isArray(o.cart_items)) {
+        o.cart_items.forEach(item => {
+          if (item && item.product_id) ids.add(String(item.product_id));
+        });
+      }
+      return Array.from(ids);
+    }
+
     function renderPreOrderRows(orders) {
       const list = document.getElementById('preOrdersList');
       const empty = document.getElementById('preOrdersEmpty');
@@ -368,18 +389,55 @@
         const ip = o.user_ip || 'N/A';
         const status = o.status || 'pending';
         const productId = o.product_id || '';
+        const orderType = (o.order_type || 'preorder').toLowerCase();
+        const isCart = orderType === 'cart';
+
+        // Order type badge
+        const typeBadge = isCart
+          ? '<span class="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Cart</span>'
+          : '<span class="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">Pre-Order</span>';
+
         const statusClass =
           status === 'pending' || status === 'Pending' ? 'bg-amber-100 text-amber-700' :
           status === 'completed' || status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
           'bg-slate-100 text-slate-600';
 
+        // Build cart items list if present
+        let itemsHtml = '';
+        const cartItems = (o.items && Array.isArray(o.items)) ? o.items :
+                          (o.cart_items && Array.isArray(o.cart_items)) ? o.cart_items : null;
+
+        if (isCart && cartItems && cartItems.length) {
+          itemsHtml = `
+            <div class="mt-2 p-2.5 rounded-lg bg-white border border-slate-200">
+              <p class="text-[11px] font-semibold text-slate-500 uppercase mb-1.5">Cart Items (${cartItems.length})</p>
+              <div class="space-y-1">
+                ${cartItems.map(item => `
+                  <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-700 truncate pr-2">${item.product_name || item.name || '—'}</span>
+                    <span class="font-medium text-blue-600 whitespace-nowrap">₹${item.price || '—'}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        // Encode product IDs for the buttons (safe for onclick)
+        const allProductIds = getProductIdsFromOrder(o);
+        const productIdsStr = allProductIds.join(',');
+
         return `
           <div class="preorder-row p-4 rounded-xl border border-slate-100 bg-slate-50">
             <div class="flex flex-col gap-2">
               <div class="min-w-0">
-                <p class="font-semibold text-sm text-slate-900">${o.customer_name || '—'}</p>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="font-semibold text-sm text-slate-900">${o.customer_name || '—'}</p>
+                  ${typeBadge}
+                </div>
                 <p class="text-xs text-slate-500 mt-0.5">${o.product_name || '—'}</p>
-                <p class="text-xs text-slate-500 mt-0.5">📞 ${phone || '—'}</p>
+                ${itemsHtml}
+                <p class="text-xs text-slate-500 mt-1.5">📞 ${phone || '—'}</p>
                 <p class="text-xs text-slate-400 mt-1">${date}</p>
                 <p class="text-[11px] text-slate-400 mt-0.5">IP: ${ip}</p>
                 <span class="inline-block mt-2 text-[11px] font-medium px-2 py-0.5 rounded-full ${statusClass}">${status}</span>
@@ -389,9 +447,9 @@
                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition">WhatsApp</a>
                 <a href="tel:+${waPhone}"
                    class="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition">Call</a>
-                <button onclick="markComplete('${o.id}', '${productId}')"
+                <button onclick="markComplete('${o.id}', '${productIdsStr}')"
                         class="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition">Mark Complete</button>
-                <button onclick="cancelPreOrder('${o.id}', '${productId}')"
+                <button onclick="cancelPreOrder('${o.id}', '${productIdsStr}')"
                         class="inline-flex items-center px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold transition">Cancel Order</button>
                 <button onclick="markAsSpam('${ip}')"
                         class="inline-flex items-center px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition">Mark as Spam</button>
@@ -413,15 +471,16 @@
       renderPreOrderRows(filtered);
     });
 
-    async function markComplete(orderId, productId) {
-      if (!confirm('Mark this order as completed?\n\nProduct will be marked as Sold and removed from pending list.')) return;
+    async function markComplete(orderId, productIdsStr) {
+      if (!confirm('Mark this order as completed?\n\nAll related product(s) will be marked as Sold and the order will be removed from the list.')) return;
       try {
-        if (productId && productId !== 'null' && productId !== 'undefined') {
-          await supabaseClient.from('products').update({ status: 'sold' }).eq('id', productId);
+        const ids = (productIdsStr || '').split(',').map(s => s.trim()).filter(id => id && id !== 'null' && id !== 'undefined');
+        if (ids.length > 0) {
+          await supabaseClient.from('products').update({ status: 'sold' }).in('id', ids);
         }
         const { error: delError } = await supabaseClient.from('pre_orders').delete().eq('id', orderId);
         if (delError) throw delError;
-        showToast('Order marked as completed and removed from pending list.');
+        showToast('Order marked as completed. Product(s) set to Sold.');
         loadPreOrders();
         loadProducts();
       } catch (err) {
@@ -430,15 +489,16 @@
       }
     }
 
-    async function cancelPreOrder(orderId, productId) {
-      if (!confirm('Cancel this pre-order?\n\nThe product will be made available again on the storefront.')) return;
+    async function cancelPreOrder(orderId, productIdsStr) {
+      if (!confirm('Cancel this order?\n\nAll related product(s) will be made available again on the storefront.')) return;
       try {
-        if (productId && productId !== 'null' && productId !== 'undefined') {
-          await supabaseClient.from('products').update({ status: 'available' }).eq('id', productId);
+        const ids = (productIdsStr || '').split(',').map(s => s.trim()).filter(id => id && id !== 'null' && id !== 'undefined');
+        if (ids.length > 0) {
+          await supabaseClient.from('products').update({ status: 'available' }).in('id', ids);
         }
         const { error: delError } = await supabaseClient.from('pre_orders').delete().eq('id', orderId);
         if (delError) throw delError;
-        showToast('Pre-Order cancelled. Product is back live on storefront.');
+        showToast('Order cancelled. Product(s) restored to Available on storefront.');
         loadPreOrders();
         loadProducts();
       } catch (err) {
@@ -452,21 +512,23 @@
         showToast('No valid IP to blacklist', 'error');
         return;
       }
-      if (!confirm('Mark IP ' + userIp + ' as spam?\n\nThis will:\n• Blacklist the IP\n• Delete ALL pre-orders from this IP\n• Restore reserved products to Available')) return;
+      if (!confirm('Mark IP ' + userIp + ' as spam?\n\nThis will:\n• Blacklist the IP\n• Delete ALL orders from this IP\n• Restore reserved products to Available')) return;
       try {
         await supabaseClient.from('blacklisted_ips').upsert({ ip_address: userIp }, { onConflict: 'ip_address' });
 
         const { data: orders } = await supabaseClient
           .from('pre_orders')
-          .select('product_id')
+          .select('*')
           .eq('user_ip', userIp);
 
-        const productIds = (orders || [])
-          .map(o => o.product_id)
-          .filter(id => id && id !== 'null' && id !== 'undefined');
+        // Collect every product ID from every order of this IP
+        const productIds = new Set();
+        (orders || []).forEach(o => {
+          getProductIdsFromOrder(o).forEach(id => productIds.add(id));
+        });
 
-        if (productIds.length > 0) {
-          await supabaseClient.from('products').update({ status: 'available' }).in('id', productIds);
+        if (productIds.size > 0) {
+          await supabaseClient.from('products').update({ status: 'available' }).in('id', Array.from(productIds));
         }
 
         const { error: delError } = await supabaseClient.from('pre_orders').delete().eq('user_ip', userIp);
