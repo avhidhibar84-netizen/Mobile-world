@@ -346,18 +346,15 @@
     }
 
     function getProductIdsFromOrder(o) {
-      // Collect all product IDs that belong to this order
       const ids = new Set();
       if (o.product_id && o.product_id !== 'null' && o.product_id !== 'undefined') {
         ids.add(String(o.product_id));
       }
-      // Cart items stored in `items` JSONB
       if (o.items && Array.isArray(o.items)) {
         o.items.forEach(item => {
           if (item && item.product_id) ids.add(String(item.product_id));
         });
       }
-      // Fallback for older cart_items column if present
       if (o.cart_items && Array.isArray(o.cart_items)) {
         o.cart_items.forEach(item => {
           if (item && item.product_id) ids.add(String(item.product_id));
@@ -388,7 +385,6 @@
         const waPhone = phone.startsWith('91') ? phone : '91' + phone;
         const ip = o.user_ip || 'N/A';
         const status = o.status || 'pending';
-        const productId = o.product_id || '';
         const orderType = (o.order_type || 'preorder').toLowerCase();
         const isCart = orderType === 'cart';
 
@@ -402,7 +398,41 @@
           status === 'completed' || status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
           'bg-slate-100 text-slate-600';
 
-        // Build cart items list if present
+        // ===== DYNAMIC DISCOUNT BREAKDOWN =====
+        const subtotal = Number(o.subtotal) || 0;
+        const discountAmount = Number(o.discount_amount) || 0;
+        const finalPrice = Number(o.final_price) || 0;
+        let discountPercent = 0;
+        if (subtotal > 0 && discountAmount > 0) {
+          discountPercent = Math.round((discountAmount / subtotal) * 100);
+        }
+
+        let priceBreakdownHtml = '';
+        if (subtotal > 0 || finalPrice > 0) {
+          priceBreakdownHtml = `
+            <div class="mt-2 p-2.5 rounded-lg bg-white border border-slate-200 text-xs space-y-1">
+              <div class="flex justify-between text-slate-600">
+                <span>Original Subtotal</span>
+                <span>₹${subtotal || '—'}</span>
+              </div>
+              ${discountPercent > 0 ? `
+                <div class="flex justify-between items-center text-emerald-600 font-medium">
+                  <span>Discount Applied</span>
+                  <span class="inline-flex items-center gap-1">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">${discountPercent}% OFF</span>
+                    -₹${discountAmount}
+                  </span>
+                </div>
+              ` : ''}
+              <div class="flex justify-between font-bold text-slate-900 pt-1 border-t border-slate-100">
+                <span>Final Payable</span>
+                <span>₹${finalPrice || subtotal || '—'}</span>
+              </div>
+            </div>
+          `;
+        }
+
+        // Cart items list
         let itemsHtml = '';
         const cartItems = (o.items && Array.isArray(o.items)) ? o.items :
                           (o.cart_items && Array.isArray(o.cart_items)) ? o.cart_items : null;
@@ -415,7 +445,10 @@
                 ${cartItems.map(item => `
                   <div class="flex justify-between items-center text-xs">
                     <span class="text-slate-700 truncate pr-2">${item.product_name || item.name || '—'}</span>
-                    <span class="font-medium text-blue-600 whitespace-nowrap">₹${item.price || '—'}</span>
+                    <span class="font-medium text-blue-600 whitespace-nowrap">
+                      ${item.original_price ? `<span class="line-through text-slate-400 mr-1">₹${item.original_price}</span>` : ''}
+                      ₹${item.price || '—'}
+                    </span>
                   </div>
                 `).join('')}
               </div>
@@ -423,7 +456,6 @@
           `;
         }
 
-        // Encode product IDs for the buttons (safe for onclick)
         const allProductIds = getProductIdsFromOrder(o);
         const productIdsStr = allProductIds.join(',');
 
@@ -437,6 +469,7 @@
                 </div>
                 <p class="text-xs text-slate-500 mt-0.5">${o.product_name || '—'}</p>
                 ${itemsHtml}
+                ${priceBreakdownHtml}
                 <p class="text-xs text-slate-500 mt-1.5">📞 ${phone || '—'}</p>
                 <p class="text-xs text-slate-400 mt-1">${date}</p>
                 <p class="text-[11px] text-slate-400 mt-0.5">IP: ${ip}</p>
@@ -521,7 +554,6 @@
           .select('*')
           .eq('user_ip', userIp);
 
-        // Collect every product ID from every order of this IP
         const productIds = new Set();
         (orders || []).forEach(o => {
           getProductIdsFromOrder(o).forEach(id => productIds.add(id));
